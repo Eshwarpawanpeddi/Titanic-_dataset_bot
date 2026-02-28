@@ -2,14 +2,12 @@ import io
 import base64
 import json
 import os
-import textwrap
 import traceback
 from typing import Optional
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
@@ -19,7 +17,7 @@ from pydantic import BaseModel
 
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain.tools import tool
-from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import PromptTemplate
 
 load_dotenv()
@@ -35,6 +33,7 @@ COLORS = {
     "muted": "#8b949e",
     "bars": ["#58a6ff", "#f78166", "#3fb950", "#bc8cff", "#ffa657", "#79c0ff"],
 }
+
 
 def load_data():
     try:
@@ -60,6 +59,7 @@ def load_data():
             "Embarked": ["S","C","S","S","S","Q","S","S","S","C",
                          "S","S","S","S","S","S","Q","S","S","C"],
         })
+
 
 df = load_data()
 
@@ -257,7 +257,7 @@ Rules:
 
 {tools}
 
-Use this format:
+Use this format strictly:
 
 Question: the question to answer
 Thought: think about what to do
@@ -278,10 +278,11 @@ agent_executor = None
 def get_agent():
     global agent_executor
     if agent_executor is None:
-        llm = ChatOpenAI(
-            model="gpt-4o-mini",
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-1.5-flash",
             temperature=0,
-            openai_api_key=os.getenv("OPENAI_API_KEY"),
+            google_api_key=os.getenv("GOOGLE_API_KEY"),
+            convert_system_message_to_human=True,
         )
         agent = create_react_agent(llm, tools, prompt)
         agent_executor = AgentExecutor(

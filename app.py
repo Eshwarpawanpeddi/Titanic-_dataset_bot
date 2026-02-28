@@ -123,28 +123,25 @@ if "messages" not in st.session_state:
 if "pending" not in st.session_state:
     st.session_state.pending = None
 
+backend_url = st.secrets.get("BACKEND_URL", BACKEND_URL)
+
 with st.sidebar:
     st.markdown("## ⚙️ Settings")
-    backend_url = st.text_input("Backend URL", value=BACKEND_URL)
-
-    st.markdown("---")
     st.markdown("### 📊 About the Dataset")
     st.markdown(
         "The **Titanic dataset** contains info on 891 passengers — "
         "survival, class, sex, age, fare, and embarkation port."
     )
-
     st.markdown("---")
     st.markdown("### 💡 Try asking…")
-    suggestions = [
+    for suggestion in [
         "What was the survival rate?",
         "Show me a histogram of passenger ages",
         "Average fare by passenger class",
         "How many passengers from each port?",
         "Survival rate by gender",
         "Show age distribution by class as a box plot",
-    ]
-    for suggestion in suggestions:
+    ]:
         if st.button(suggestion, key=f"sb_{suggestion}", use_container_width=True):
             st.session_state.pending = suggestion
 
@@ -158,9 +155,6 @@ st.markdown("""
   <h1>🚢 TitanicBot</h1>
   <p>Ask anything about the Titanic passenger dataset — get answers and charts instantly.</p>
 </div>
-""", unsafe_allow_html=True)
-
-st.markdown("""
 <div class="stat-row">
   <div class="stat-pill">👥 Passengers <span class="val">891</span></div>
   <div class="stat-pill">✅ Survived <span class="val">342</span></div>
@@ -173,7 +167,6 @@ st.markdown("""
 def show_message(role, content, image_b64=None, image_caption=None, ts=None):
     side = "user" if role == "user" else "bot"
     icon = "👤" if role == "user" else "🚢"
-
     st.markdown(f"""
     <div class="msg-wrap {side}">
       <div class="avatar {side}">{icon}</div>
@@ -183,7 +176,6 @@ def show_message(role, content, image_b64=None, image_caption=None, ts=None):
       </div>
     </div>
     """, unsafe_allow_html=True)
-
     if image_b64:
         st.markdown(
             f'<div class="chart-card">'
@@ -195,13 +187,7 @@ def show_message(role, content, image_b64=None, image_caption=None, ts=None):
 
 
 for msg in st.session_state.messages:
-    show_message(
-        role=msg["role"],
-        content=msg["content"],
-        image_b64=msg.get("image_b64"),
-        image_caption=msg.get("image_caption"),
-        ts=msg.get("ts"),
-    )
+    show_message(msg["role"], msg["content"], msg.get("image_b64"), msg.get("image_caption"), msg.get("ts"))
 
 user_input = st.chat_input("Ask about the Titanic dataset…")
 
@@ -211,7 +197,6 @@ if st.session_state.pending:
 
 if user_input:
     now = datetime.now().strftime("%H:%M")
-
     st.session_state.messages.append({"role": "user", "content": user_input, "ts": now})
     show_message("user", user_input, ts=now)
 
@@ -231,7 +216,7 @@ if user_input:
         image_b64 = data.get("image_b64")
         image_caption = data.get("image_caption")
     except requests.exceptions.ConnectionError:
-        answer = f"⚠️ Can't reach the backend at `{backend_url}`. Make sure it's running."
+        answer = f"⚠️ Can't reach the backend. Make sure it's deployed and `BACKEND_URL` is set in Streamlit secrets."
         image_b64 = None
         image_caption = None
     except Exception as e:
@@ -240,7 +225,6 @@ if user_input:
         image_caption = None
 
     typing.empty()
-
     reply_ts = datetime.now().strftime("%H:%M")
     st.session_state.messages.append({
         "role": "assistant",
