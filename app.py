@@ -154,7 +154,7 @@ st.markdown("""
 <div class="hero">
   <h1>🚢 TitanicBot</h1>
   <p>Ask anything about the Titanic passenger dataset — get answers and charts instantly.</p>
-            <p>The code has been deployed on render for the backend and Streamlit Cloud for the frontend. You can find the source code on <a href="https://github.com/eshwar/Titanic-_dataset_bot">GitHub</a>.</p>
+            <p>The code has been deployed on render for the backend and Streamlit Cloud for the frontend. You can find the source code on <a href="https://github.com/Eshwarpawanpeddi/Titanic-_dataset_bot">GitHub</a>.</p>
             <p>The render server goes to sleep after 15 mins of inactivity, so the first request might take ~30 seconds to wake it up. Thanks for your patience!</p>
             <p>please be patient -Eshwar :) to the TailorTalk Team</p>
 </div>
