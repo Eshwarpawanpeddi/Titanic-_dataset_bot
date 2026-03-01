@@ -279,7 +279,7 @@ def get_agent():
     global agent_executor
     if agent_executor is None:
         llm = ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash",
+            model="gemini-2.0-flash-lite",
             temperature=0,
             google_api_key=os.getenv("GOOGLE_API_KEY"),
         )
