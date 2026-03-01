@@ -279,10 +279,9 @@ def get_agent():
     global agent_executor
     if agent_executor is None:
         llm = ChatGoogleGenerativeAI(
-            model="Gemini 2.5 Flash-Lite",
+            model="gemini-2.0-flash",
             temperature=0,
             google_api_key=os.getenv("GOOGLE_API_KEY"),
-            convert_system_message_to_human=True,
         )
         agent = create_react_agent(llm, tools, prompt)
         agent_executor = AgentExecutor(
@@ -315,9 +314,14 @@ class ChatResponse(BaseModel):
     image_caption: Optional[str] = None
 
 
+@app.get("/ping")
+def ping():
+    return {"ok": True}
+
+
 @app.get("/health")
 def health():
-    return {"status": "ok", "rows": len(df), "columns": list(df.columns)}
+    return {"status": "ok", "rows": len(df)}
 
 
 @app.post("/chat", response_model=ChatResponse)
