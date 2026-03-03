@@ -125,6 +125,21 @@ if "pending" not in st.session_state:
 
 backend_url = st.secrets.get("BACKEND_URL", BACKEND_URL)
 
+
+@st.cache_data(show_spinner=False)
+def load_prebuilt(url: str) -> dict:
+    """Fetch pre-built responses from the backend once and cache globally."""
+    try:
+        r = requests.get(f"{url}/prebuilt", timeout=15)
+        r.raise_for_status()
+        return r.json()
+    except Exception as exc:
+        print(f"[TitanicBot] Warning: could not load pre-built responses: {exc}")
+        return {}
+
+
+prebuilt_cache = load_prebuilt(backend_url)
+
 with st.sidebar:
     st.markdown("## ⚙️ Settings")
     st.markdown("### 📊 About the Dataset")
@@ -136,9 +151,12 @@ with st.sidebar:
     st.markdown("### 💡 Try asking…")
     for suggestion in [
         "What was the survival rate?",
+        "What percentage of passengers were male on the Titanic?",
         "Show me a histogram of passenger ages",
+        "What was the average ticket fare?",
         "Average fare by passenger class",
         "How many passengers from each port?",
+        "How many passengers embarked from each port?",
         "Survival rate by gender",
         "Show age distribution by class as a box plot",
     ]:
@@ -203,31 +221,37 @@ if user_input:
     st.session_state.messages.append({"role": "user", "content": user_input, "ts": now})
     show_message("user", user_input, ts=now)
 
-    typing = st.empty()
-    typing.markdown(
-        '<div class="bubble bot" style="display:inline-block;margin-bottom:.5rem;">'
-        '<div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>'
-        '</div>',
-        unsafe_allow_html=True,
-    )
+    prebuilt_hit = prebuilt_cache.get(user_input.strip())
+    if prebuilt_hit:
+        answer = prebuilt_hit.get("answer", "")
+        image_b64 = prebuilt_hit.get("image_b64")
+        image_caption = prebuilt_hit.get("image_caption")
+    else:
+        typing = st.empty()
+        typing.markdown(
+            '<div class="bubble bot" style="display:inline-block;margin-bottom:.5rem;">'
+            '<div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
 
-    try:
-        res = requests.post(f"{backend_url}/chat", json={"question": user_input}, timeout=90)
-        res.raise_for_status()
-        data = res.json()
-        answer = data.get("answer", "Something went wrong, please try again.")
-        image_b64 = data.get("image_b64")
-        image_caption = data.get("image_caption")
-    except requests.exceptions.ConnectionError:
-        answer = f"⚠️ Can't reach the backend. Make sure it's deployed and `BACKEND_URL` is set in Streamlit secrets."
-        image_b64 = None
-        image_caption = None
-    except Exception as e:
-        answer = f"⚠️ {e}"
-        image_b64 = None
-        image_caption = None
+        try:
+            res = requests.post(f"{backend_url}/chat", json={"question": user_input}, timeout=90)
+            res.raise_for_status()
+            data = res.json()
+            answer = data.get("answer", "Something went wrong, please try again.")
+            image_b64 = data.get("image_b64")
+            image_caption = data.get("image_caption")
+        except requests.exceptions.ConnectionError:
+            answer = f"⚠️ Can't reach the backend. Make sure it's deployed and `BACKEND_URL` is set in Streamlit secrets."
+            image_b64 = None
+            image_caption = None
+        except Exception as e:
+            answer = f"⚠️ {e}"
+            image_b64 = None
+            image_caption = None
 
-    typing.empty()
+        typing.empty()
     reply_ts = datetime.now().strftime("%H:%M")
     st.session_state.messages.append({
         "role": "assistant",

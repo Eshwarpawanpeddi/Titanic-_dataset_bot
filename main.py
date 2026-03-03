@@ -17,7 +17,7 @@ from pydantic import BaseModel
 
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain.tools import tool
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_xai import ChatXAI
 from langchain.prompts import PromptTemplate
 
 load_dotenv()
@@ -243,26 +243,193 @@ def create_chart(spec: str) -> str:
 
 tools = [query_data, create_chart]
 
-prompt = PromptTemplate.from_template("""
-You are TitanicBot, a friendly assistant that helps people explore the Titanic passenger dataset.
+# ---------------------------------------------------------------------------
+# Pre-built responses for sidebar suggestion buttons
+# ---------------------------------------------------------------------------
 
-The dataset has these columns:
-PassengerId, Survived (0=no, 1=yes), Pclass (1/2/3), Name, Sex, Age, SibSp, Parch, Ticket, Fare, Cabin, Embarked (S/C/Q)
+PREBUILT: dict = {}
+
+
+def _chart(spec_dict: dict) -> Optional[str]:
+    """Generate a chart and return its base64 PNG, or None on failure."""
+    try:
+        return json.loads(create_chart.run(json.dumps(spec_dict))).get("image")
+    except Exception:
+        return None
+
+
+def _build_prebuilt() -> None:
+    """Compute text + chart responses for every sidebar quick-access question."""
+    global PREBUILT
+
+    total = len(df)
+    survived_n = int(df["Survived"].sum())
+    not_survived_n = total - survived_n
+    survival_rate = round(df["Survived"].mean() * 100, 1)
+
+    PREBUILT["What was the survival rate?"] = {
+        "answer": (
+            f"Out of {total} passengers, **{survived_n} survived** — a survival rate of "
+            f"**{survival_rate}%**. The remaining {not_survived_n} "
+            f"({100 - survival_rate:.1f}%) did not survive."
+        ),
+        "image_b64": _chart({
+            "type": "bar", "column": "Survived",
+            "title": "Survival Count",
+            "xlabel": "Survived (0 = No, 1 = Yes)", "ylabel": "Passengers",
+        }),
+        "image_caption": "Survival Count",
+    }
+
+    avg_age = round(float(df["Age"].mean()), 1)
+    min_age = int(df["Age"].min())
+    max_age = int(df["Age"].max())
+    PREBUILT["Show me a histogram of passenger ages"] = {
+        "answer": (
+            f"Passenger ages ranged from **{min_age}** to **{max_age}** years, "
+            f"with an average of **{avg_age}** years. "
+            f"Most passengers were between 20 and 40 years old."
+        ),
+        "image_b64": _chart({
+            "type": "histogram", "column": "Age", "bins": 20,
+            "title": "Distribution of Passenger Ages",
+            "xlabel": "Age", "ylabel": "Frequency",
+        }),
+        "image_caption": "Distribution of Passenger Ages",
+    }
+
+    fare_by_class = df.groupby("Pclass")["Fare"].mean().round(2)
+    PREBUILT["Average fare by passenger class"] = {
+        "answer": (
+            f"Average fares — "
+            f"1st class: **${fare_by_class.get(1, 0):.2f}**, "
+            f"2nd class: **${fare_by_class.get(2, 0):.2f}**, "
+            f"3rd class: **${fare_by_class.get(3, 0):.2f}**. "
+            f"1st class passengers paid significantly more."
+        ),
+        "image_b64": _chart({
+            "type": "bar", "column": "Pclass", "agg": "mean", "agg_col": "Fare",
+            "title": "Average Fare by Passenger Class",
+            "xlabel": "Passenger Class", "ylabel": "Avg Fare ($)",
+        }),
+        "image_caption": "Average Fare by Passenger Class",
+    }
+
+    port_counts = df["Embarked"].value_counts()
+    port_names = {"S": "Southampton", "C": "Cherbourg", "Q": "Queenstown"}
+    port_str = ", ".join(
+        f"**{port_names.get(p, p)} ({p})**: {n}" for p, n in port_counts.items()
+    )
+    port_entry = {
+        "answer": (
+            f"Embarkation ports — {port_str}. "
+            f"Southampton was by far the most common boarding point."
+        ),
+        "image_b64": _chart({
+            "type": "bar", "column": "Embarked",
+            "title": "Passengers by Embarkation Port",
+            "xlabel": "Port (S=Southampton, C=Cherbourg, Q=Queenstown)",
+            "ylabel": "Passengers",
+        }),
+        "image_caption": "Passengers by Embarkation Port",
+    }
+    PREBUILT["How many passengers from each port?"] = port_entry
+    PREBUILT["How many passengers embarked from each port?"] = port_entry
+
+    surv_by_sex = df.groupby("Sex")["Survived"].mean().mul(100).round(1)
+    count_by_sex = df["Sex"].value_counts()
+    PREBUILT["Survival rate by gender"] = {
+        "answer": (
+            f"Women had a much higher survival rate "
+            f"(**{surv_by_sex.get('female', 0)}%**) than men "
+            f"(**{surv_by_sex.get('male', 0)}%**). "
+            f"There were {count_by_sex.get('female', 0)} women and "
+            f"{count_by_sex.get('male', 0)} men aboard. "
+            f'"Women and children first" was clearly practiced.'
+        ),
+        "image_b64": _chart({
+            "type": "bar", "column": "Sex", "agg": "mean", "agg_col": "Survived",
+            "title": "Survival Rate by Gender",
+            "xlabel": "Gender", "ylabel": "Survival Rate (0–1)",
+        }),
+        "image_caption": "Survival Rate by Gender",
+    }
+
+    age_med_by_class = df.groupby("Pclass")["Age"].median().round(1)
+    PREBUILT["Show age distribution by class as a box plot"] = {
+        "answer": (
+            f"Median ages by class — "
+            f"1st class: **{age_med_by_class.get(1, 0)}** yrs, "
+            f"2nd class: **{age_med_by_class.get(2, 0)}** yrs, "
+            f"3rd class: **{age_med_by_class.get(3, 0)}** yrs. "
+            f"1st class passengers tended to be older."
+        ),
+        "image_b64": _chart({
+            "type": "box", "column": "Age", "hue": "Pclass",
+            "title": "Age Distribution by Passenger Class",
+            "xlabel": "Passenger Class", "ylabel": "Age (years)",
+        }),
+        "image_caption": "Age Distribution by Passenger Class",
+    }
+
+    male_n = int((df["Sex"] == "male").sum())
+    female_n = total - male_n
+    male_pct = round(male_n / total * 100, 1)
+    female_pct = round(100 - male_pct, 1)
+    PREBUILT["What percentage of passengers were male on the Titanic?"] = {
+        "answer": (
+            f"**{male_pct}%** of passengers were male ({male_n} out of {total}). "
+            f"The remaining **{female_pct}%** ({female_n} passengers) were female."
+        ),
+        "image_b64": _chart({
+            "type": "pie", "column": "Sex",
+            "title": "Passenger Gender Breakdown",
+        }),
+        "image_caption": "Passenger Gender Breakdown",
+    }
+
+    avg_fare = round(float(df["Fare"].mean()), 2)
+    min_fare = round(float(df["Fare"].min()), 2)
+    max_fare = round(float(df["Fare"].max()), 2)
+    median_fare = round(float(df["Fare"].median()), 2)
+    PREBUILT["What was the average ticket fare?"] = {
+        "answer": (
+            f"The average ticket fare was **${avg_fare}**. "
+            f"Fares ranged from **${min_fare}** to **${max_fare}**, "
+            f"with a median of **${median_fare}**. "
+            f"The wide range reflects the large price gap between passenger classes."
+        ),
+        "image_b64": _chart({
+            "type": "histogram", "column": "Fare", "bins": 30,
+            "title": "Distribution of Ticket Fares",
+            "xlabel": "Fare ($)", "ylabel": "Passengers",
+        }),
+        "image_caption": "Distribution of Ticket Fares",
+    }
+
+
+try:
+    _build_prebuilt()
+except Exception as exc:
+    print(f"[TitanicBot] Warning: pre-built responses failed to generate: {exc}")
+
+
+prompt = PromptTemplate.from_template("""
+You are TitanicBot, a friendly assistant for exploring the Titanic passenger dataset.
+
+Columns: PassengerId, Survived (0=no,1=yes), Pclass (1/2/3), Name, Sex, Age, SibSp, Parch, Ticket, Fare, Cabin, Embarked (S/C/Q)
 
 Rules:
-- Always use query_data to get real numbers before stating any facts
-- When someone asks for a chart, histogram, or plot, use create_chart
-- Be friendly and conversational in your answers
-- Never make up numbers
+- Use query_data for real numbers; never make up stats
+- Use create_chart when asked for a chart/histogram/plot
+- Be concise and friendly
 
 {tools}
 
-Use this format strictly:
-
-Question: the question to answer
+Format:
 Thought: think about what to do
 Action: one of [{tool_names}]
-Action Input: the input for that action
+Action Input: the input
 Observation: the result
 ... (repeat as needed)
 Thought: I now know the final answer
@@ -278,10 +445,10 @@ agent_executor = None
 def get_agent():
     global agent_executor
     if agent_executor is None:
-        llm = ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash-lite",
+        llm = ChatXAI(
+            model="grok-3-mini",
             temperature=0,
-            google_api_key=os.getenv("GOOGLE_API_KEY"),
+            xai_api_key=os.getenv("XAI_API_KEY"),
         )
         agent = create_react_agent(llm, tools, prompt)
         agent_executor = AgentExecutor(
@@ -322,6 +489,11 @@ def ping():
 @app.get("/health")
 def health():
     return {"status": "ok", "rows": len(df)}
+
+
+@app.get("/prebuilt")
+def get_prebuilt():
+    return PREBUILT
 
 
 @app.post("/chat", response_model=ChatResponse)
