@@ -17,7 +17,7 @@ from pydantic import BaseModel
 
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain.tools import tool
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_xai import ChatXAI
 from langchain.prompts import PromptTemplate
 
 load_dotenv()
@@ -244,25 +244,21 @@ def create_chart(spec: str) -> str:
 tools = [query_data, create_chart]
 
 prompt = PromptTemplate.from_template("""
-You are TitanicBot, a friendly assistant that helps people explore the Titanic passenger dataset.
+You are TitanicBot, a friendly assistant for exploring the Titanic passenger dataset.
 
-The dataset has these columns:
-PassengerId, Survived (0=no, 1=yes), Pclass (1/2/3), Name, Sex, Age, SibSp, Parch, Ticket, Fare, Cabin, Embarked (S/C/Q)
+Columns: PassengerId, Survived (0=no,1=yes), Pclass (1/2/3), Name, Sex, Age, SibSp, Parch, Ticket, Fare, Cabin, Embarked (S/C/Q)
 
 Rules:
-- Always use query_data to get real numbers before stating any facts
-- When someone asks for a chart, histogram, or plot, use create_chart
-- Be friendly and conversational in your answers
-- Never make up numbers
+- Use query_data for real numbers; never make up stats
+- Use create_chart when asked for a chart/histogram/plot
+- Be concise and friendly
 
 {tools}
 
-Use this format strictly:
-
-Question: the question to answer
+Format:
 Thought: think about what to do
 Action: one of [{tool_names}]
-Action Input: the input for that action
+Action Input: the input
 Observation: the result
 ... (repeat as needed)
 Thought: I now know the final answer
@@ -278,10 +274,10 @@ agent_executor = None
 def get_agent():
     global agent_executor
     if agent_executor is None:
-        llm = ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash-lite",
+        llm = ChatXAI(
+            model="grok-3-mini",
             temperature=0,
-            google_api_key=os.getenv("GOOGLE_API_KEY"),
+            xai_api_key=os.getenv("XAI_API_KEY"),
         )
         agent = create_react_agent(llm, tools, prompt)
         agent_executor = AgentExecutor(
