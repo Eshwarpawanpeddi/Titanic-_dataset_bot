@@ -15,10 +15,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from langchain.agents import AgentExecutor, create_react_agent
-from langchain.tools import tool
+from langchain_classic.agents import AgentExecutor, create_react_agent
+from langchain_classic.tools import tool
 from langchain_xai import ChatXAI
-from langchain.prompts import PromptTemplate
+from langchain_classic.prompts import PromptTemplate
 
 load_dotenv()
 
