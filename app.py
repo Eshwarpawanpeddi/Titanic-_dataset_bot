@@ -133,7 +133,8 @@ def load_prebuilt(url: str) -> dict:
         r = requests.get(f"{url}/prebuilt", timeout=15)
         r.raise_for_status()
         return r.json()
-    except Exception:
+    except Exception as exc:
+        print(f"[TitanicBot] Warning: could not load pre-built responses: {exc}")
         return {}
 
 
@@ -150,9 +151,12 @@ with st.sidebar:
     st.markdown("### 💡 Try asking…")
     for suggestion in [
         "What was the survival rate?",
+        "What percentage of passengers were male on the Titanic?",
         "Show me a histogram of passenger ages",
+        "What was the average ticket fare?",
         "Average fare by passenger class",
         "How many passengers from each port?",
+        "How many passengers embarked from each port?",
         "Survival rate by gender",
         "Show age distribution by class as a box plot",
     ]:

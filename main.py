@@ -320,7 +320,7 @@ def _build_prebuilt() -> None:
     port_str = ", ".join(
         f"**{port_names.get(p, p)} ({p})**: {n}" for p, n in port_counts.items()
     )
-    PREBUILT["How many passengers from each port?"] = {
+    port_entry = {
         "answer": (
             f"Embarkation ports — {port_str}. "
             f"Southampton was by far the most common boarding point."
@@ -333,6 +333,8 @@ def _build_prebuilt() -> None:
         }),
         "image_caption": "Passengers by Embarkation Port",
     }
+    PREBUILT["How many passengers from each port?"] = port_entry
+    PREBUILT["How many passengers embarked from each port?"] = port_entry
 
     surv_by_sex = df.groupby("Sex")["Survived"].mean().mul(100).round(1)
     count_by_sex = df["Sex"].value_counts()
@@ -368,6 +370,41 @@ def _build_prebuilt() -> None:
             "xlabel": "Passenger Class", "ylabel": "Age (years)",
         }),
         "image_caption": "Age Distribution by Passenger Class",
+    }
+
+    male_n = int((df["Sex"] == "male").sum())
+    female_n = total - male_n
+    male_pct = round(male_n / total * 100, 1)
+    female_pct = round(100 - male_pct, 1)
+    PREBUILT["What percentage of passengers were male on the Titanic?"] = {
+        "answer": (
+            f"**{male_pct}%** of passengers were male ({male_n} out of {total}). "
+            f"The remaining **{female_pct}%** ({female_n} passengers) were female."
+        ),
+        "image_b64": _chart({
+            "type": "pie", "column": "Sex",
+            "title": "Passenger Gender Breakdown",
+        }),
+        "image_caption": "Passenger Gender Breakdown",
+    }
+
+    avg_fare = round(float(df["Fare"].mean()), 2)
+    min_fare = round(float(df["Fare"].min()), 2)
+    max_fare = round(float(df["Fare"].max()), 2)
+    median_fare = round(float(df["Fare"].median()), 2)
+    PREBUILT["What was the average ticket fare?"] = {
+        "answer": (
+            f"The average ticket fare was **${avg_fare}**. "
+            f"Fares ranged from **${min_fare}** to **${max_fare}**, "
+            f"with a median of **${median_fare}**. "
+            f"The wide range reflects the large price gap between passenger classes."
+        ),
+        "image_b64": _chart({
+            "type": "histogram", "column": "Fare", "bins": 30,
+            "title": "Distribution of Ticket Fares",
+            "xlabel": "Fare ($)", "ylabel": "Passengers",
+        }),
+        "image_caption": "Distribution of Ticket Fares",
     }
 
 
