@@ -1,8 +1,8 @@
 fastapi==0.115.0
 uvicorn==0.30.6
-langchain==0.3.0
+langchain==1.2.10
 langchain-xai==1.2.2
-langchain-experimental==0.3.0
+langchain-experimental==0.4.1
 pandas==2.2.3
 matplotlib==3.9.2
 numpy==1.26.4
